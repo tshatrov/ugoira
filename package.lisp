@@ -1,5 +1,6 @@
 ;;;; package.lisp
 
 (defpackage #:ugoira
-  (:use #:cl))
+  (:use #:cl)
+  (:export :*out-dir* :download-ugoira :download-manga :download-image))
 
