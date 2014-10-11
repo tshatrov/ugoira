@@ -54,8 +54,14 @@
           ((search "mode=manga" link-href)
            (download-manga id))
           (t (let* ((img-url (dom:get-attribute (car (css:query "div.img-container img" main-content)) "src"))
-                    (url (ppcre:regex-replace "_.\\." img-url ".")))
-               (format t "Downloading ~a...~%" url) (force-output)
-               (download-with-ref (merge-pathnames *out-dir* (get-file-name url)) url ref-url))))))
+                    (url (ppcre:regex-replace "/c/[^/]+/img-master/"
+                                              (ppcre:regex-replace "_[^_]+\\..*$" img-url ".")
+                                              "/img-original/")))
+               (loop for extension in '("png" "jpg" "gif" "jpeg")
+                    for iurl = (concatenate 'string url extension)
+                    do
+                    (format t "Downloading ~a...~%" iurl) (force-output)
+                    (let ((code (download-with-ref (merge-pathnames *out-dir* (get-file-name iurl)) iurl ref-url)))
+                      (when (= code 200) (loop-finish)))))))))
          
 
