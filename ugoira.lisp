@@ -6,6 +6,8 @@
 
 (defparameter *out-dir* #P"d:/art/out/")
 
+(defparameter *image-extensions* '("png" "jpg" "gif" "jpeg"))
+
 (defun download-with-ref (out url referer)
   (multiple-value-bind (content code) (drakma:http-request url :additional-headers `(("Referer" . ,referer)))
     (when (= code 200)
@@ -19,6 +21,23 @@
   (let* ((pos (position #\/ url :from-end t))
          (fname (subseq url (1+ pos))))
     fname))
+
+(defun get-original-url (img-url)
+  (if (search "img-master" img-url)
+      (values (ppcre:regex-replace "/c/[^/]+/img-master/"
+                                   (ppcre:regex-replace "_[^_]+\\..*$" img-url ".")
+                                   "/img-original/")
+              t)
+      (values img-url nil)))
+
+(defun download-with-extensions (url ref-url)
+  (multiple-value-bind (url with-extensions) (get-original-url url)
+    (loop for extension in (if with-extensions *image-extensions* '(""))
+       for iurl = (concatenate 'string url extension)
+       do
+         (format t "Downloading ~a...~%" iurl) (force-output)
+         (let ((code (download-with-ref (merge-pathnames *out-dir* (get-file-name iurl)) iurl ref-url)))
+           (when (= code 200) (loop-finish))))))
 
 (defun download-ugoira (id)
   (let* ((ref-url (format nil "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=~a" id))
@@ -41,9 +60,7 @@
     (loop for img in (css:query "img[data-filter=\"manga-image\"]" manga-content)
           for img-url = (dom:get-attribute img "data-src")
           for url = (ppcre:regex-replace "_p\\d*\\." img-url "_big\\&")
-          do (format t "Downloading ~a...~%" url) (force-output)
-          do (download-with-ref (merge-pathnames *out-dir* (get-file-name url)) url manga-url))))
-
+         do (download-with-extensions url manga-url))))
 
 (defun download-image (id)
   (let* ((ref-url (format nil "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=~a" id))
@@ -53,15 +70,7 @@
            (download-ugoira id))
           ((search "mode=manga" link-href)
            (download-manga id))
-          (t (let* ((img-url (dom:get-attribute (car (css:query "div.img-container img" main-content)) "src"))
-                    (url (ppcre:regex-replace "/c/[^/]+/img-master/"
-                                              (ppcre:regex-replace "_[^_]+\\..*$" img-url ".")
-                                              "/img-original/")))
-               (loop for extension in '("png" "jpg" "gif" "jpeg")
-                    for iurl = (concatenate 'string url extension)
-                    do
-                    (format t "Downloading ~a...~%" iurl) (force-output)
-                    (let ((code (download-with-ref (merge-pathnames *out-dir* (get-file-name iurl)) iurl ref-url)))
-                      (when (= code 200) (loop-finish)))))))))
+          (t (let* ((img-url (dom:get-attribute (car (css:query "div.img-container img" main-content)) "src")))
+               (download-with-extensions img-url ref-url))))))
          
 
