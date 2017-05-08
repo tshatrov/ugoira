@@ -42,7 +42,7 @@
 (defun download-ugoira (id)
   (let* ((ref-url (format nil "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=~a" id))
          (main-content (webgunk:http-request ref-url))
-         (ugoira-url (delete #\\ (ppcre:scan-to-strings "http:.*img-zip-ugoira.*\\.zip" main-content)))
+         (ugoira-url (delete #\\ (ppcre:scan-to-strings "https?:.*img-zip-ugoira.*\\.zip" main-content)))
          (ugoira-base (ppcre:regex-replace "\\d+x\\d+\\.zip$" ugoira-url ""))
          (urls (mapcar (lambda (s) (concatenate 'string ugoira-base s ".zip")) *suffixes*)))
     (push ugoira-url urls)
