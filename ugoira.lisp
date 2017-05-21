@@ -24,7 +24,7 @@
 
 (defun get-original-url (img-url)
   (if (search "img-master" img-url)
-      (values (ppcre:regex-replace "/c/[^/]+/img-master/"
+      (values (ppcre:regex-replace "(/c/[^/]+)?/img-master/"
                                    (ppcre:regex-replace "_[^_]+\\..*$" img-url ".")
                                    "/img-original/")
               t)
