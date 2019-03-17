@@ -17,11 +17,6 @@
         (write-sequence content stream)))
     code))
 
-(defun get-file-name (url)
-  (let* ((pos (position #\/ url :from-end t))
-         (fname (subseq url (1+ pos))))
-    fname))
-
 (defun get-original-url (img-url)
   (if (search "img-master" img-url)
       (values (ppcre:regex-replace "(/c/[^/]+)?/img-master/"
@@ -36,7 +31,7 @@
        for iurl = (concatenate 'string url extension)
        do
          (format t "Downloading ~a...~%" iurl) (force-output)
-         (let ((code (download-with-ref (merge-pathnames *out-dir* (get-file-name iurl)) iurl ref-url)))
+         (let ((code (download-with-ref (merge-pathnames *out-dir* (webgunk:get-url-file-name iurl)) iurl ref-url)))
            (when (= code 200) (loop-finish))))))
 
 (defun download-ugoira (id)
@@ -47,7 +42,7 @@
          (urls (mapcar (lambda (s) (concatenate 'string ugoira-base s ".zip")) *suffixes*)))
     (push ugoira-url urls)
     (loop for url in urls
-         for fname = (merge-pathnames *out-dir* (get-file-name url))
+         for fname = (merge-pathnames *out-dir* (webgunk:get-url-file-name url))
          do (format t "Downloading ~a...~%" url) (force-output)
          do (let ((code (download-with-ref fname url ref-url)))
               (if (= code 200)
@@ -72,5 +67,26 @@
            (download-manga id))
           (t (let* ((img-url (dom:get-attribute (car (css:query "div.img-container img" main-content)) "src")))
                (download-with-extensions img-url ref-url))))))
-         
 
+
+;; instagram
+
+(defun parse-instagram-script (text)
+  (let ((json (jsown:parse (string-trim "; " (second (ppcre:split " = " text :limit 2))))))
+    (car (webgunk:jsown-filter json "entry_data" "PostPage" "graphql" "shortcode_media" "display_url"))))
+
+(defun download-instagram* (url ref-url)
+  (format t "Downloading ~a...~%" url)
+  (let ((fname (merge-pathnames *out-dir* (webgunk:get-url-file-name url))))
+    (download-with-ref fname url ref-url)))
+
+(defun download-instagram (id-or-url)
+  (let* ((url (if (alexandria:starts-with-subseq "http" id-or-url) id-or-url
+                  (format nil "https://www.instagram.com/p/~a/" id-or-url)))
+         (content (webgunk:parse-url url))
+         (scripts (dom:get-elements-by-tag-name content "script")))
+    (dom:do-node-list (script scripts)
+      (let ((nt (webgunk:node-text script)))
+        (when (search "display_url" nt)
+          (let ((download-url (parse-instagram-script nt)))
+            (return (download-instagram* download-url url))))))))
