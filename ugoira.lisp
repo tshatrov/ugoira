@@ -90,3 +90,20 @@
         (when (search "display_url" nt)
           (let ((download-url (parse-instagram-script nt)))
             (return (download-instagram* download-url url))))))))
+
+;; 4chan
+
+(defun download-storytime (url)
+  (let* ((content (webgunk:parse-url url))
+         (links (css:query "div.fileText a" content))
+         (thread-id (aref (nth-value 1 (ppcre:scan-to-strings "thread/(\\d+)" url)) 0))
+         (thread-dir (uiop/pathname:ensure-directory-pathname (merge-pathnames *out-dir* thread-id))))
+    (ensure-directories-exist thread-dir)
+    (loop for link in links
+       for href = (format nil "https:~a" (dom:get-attribute link "href"))
+       for orig-name = (let ((title (dom:get-attribute link "title")))
+                         (if (zerop (length title)) (webgunk:node-text link) title))
+       for fid = (pathname-name (webgunk:get-url-file-name href))
+       for fname = (merge-pathnames thread-dir (format nil "~a ~a" fid orig-name))
+       do (format t "Downloading ~a...~%" href)
+         (download-with-ref fname href url))))
