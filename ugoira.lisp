@@ -93,6 +93,10 @@
 
 ;; 4chan
 
+(defun get-title (node)
+  (let ((title (dom:get-attribute node "title")))
+    (unless (zerop (length title)) title)))
+
 (defun download-storytime (url)
   (let* ((content (webgunk:parse-url url))
          (links (css:query "div.fileText a" content))
@@ -101,9 +105,10 @@
     (ensure-directories-exist thread-dir)
     (loop for link in links
        for href = (format nil "https:~a" (dom:get-attribute link "href"))
-       for orig-name = (let ((title (dom:get-attribute link "title")))
-                         (if (zerop (length title)) (webgunk:node-text link) title))
+       for orig-name = (or (get-title link)
+                           (get-title (dom:parent-node link))
+                           (webgunk:node-text link))
        for fid = (pathname-name (webgunk:get-url-file-name href))
-       for fname = (merge-pathnames thread-dir (format nil "~a ~a" fid orig-name))
-       do (format t "Downloading ~a...~%" href)
+       for fname = (merge-pathnames thread-dir (uiop:parse-native-namestring (format nil "~a ~a" fid orig-name)))
+       do (format t "Downloading ~a to ~a...~%" href fname)
          (download-with-ref fname href url))))
