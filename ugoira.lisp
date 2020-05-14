@@ -34,6 +34,14 @@
          (let ((code (download-with-ref (merge-pathnames *out-dir* (webgunk:get-url-file-name iurl)) iurl ref-url)))
            (when (= code 200) (loop-finish))))))
 
+(defun download-url (url &optional (ref-url "http://www.pixiv.net/"))
+  (let ((fname (merge-pathnames *out-dir* (webgunk:get-url-file-name url))))
+    (format t "Downloading ~a...~%" url) (force-output)
+    (let ((code (download-with-ref fname url ref-url)))
+      (if (= code 200)
+          (format t "~a~%" fname)
+          (format t "Error: ~a~%" code)))))
+
 (defun download-ugoira (id)
   (let* ((ref-url (format nil "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=~a" id))
          (main-content (webgunk:http-request ref-url))
@@ -41,13 +49,7 @@
          (ugoira-base (ppcre:regex-replace "\\d+x\\d+\\.zip$" ugoira-url ""))
          (urls (mapcar (lambda (s) (concatenate 'string ugoira-base s ".zip")) *suffixes*)))
     (push ugoira-url urls)
-    (loop for url in urls
-         for fname = (merge-pathnames *out-dir* (webgunk:get-url-file-name url))
-         do (format t "Downloading ~a...~%" url) (force-output)
-         do (let ((code (download-with-ref fname url ref-url)))
-              (if (= code 200)
-                  (format t "~a~%" fname)
-                  (format t "Error: ~a~%" code))))))
+    (loop for url in urls do (download-url url ref-url))))
 
 (defun download-manga (id)
   (let* ((manga-url (format nil "http://www.pixiv.net/member_illust.php?mode=manga&illust_id=~a" id))
