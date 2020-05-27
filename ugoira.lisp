@@ -74,8 +74,11 @@
 ;; instagram
 
 (defun parse-instagram-script (text)
-  (let ((json (jsown:parse (string-trim "; " (second (ppcre:split " = " text :limit 2))))))
-    (car (webgunk:jsown-filter json "entry_data" "PostPage" "graphql" "shortcode_media" "display_url"))))
+  (let* ((json (jsown:parse (string-trim "; " (second (ppcre:split " = " text :limit 2)))))
+         (mm (car (webgunk:jsown-filter json "entry_data" "PostPage" "graphql" "shortcode_media"))))
+    (if (jsown:keyp mm "edge_sidecar_to_children")
+        (webgunk:jsown-filter mm "edge_sidecar_to_children" "edges" "node" "display_url")
+        (list (jsown:val mm "display_url")))))
 
 (defun download-instagram* (url ref-url)
   (format t "Downloading ~a...~%" url)
@@ -90,8 +93,9 @@
     (dom:do-node-list (script scripts)
       (let ((nt (webgunk:node-text script)))
         (when (search "display_url" nt)
-          (let ((download-url (parse-instagram-script nt)))
-            (return (download-instagram* download-url url))))))))
+          (dolist (download-url (parse-instagram-script nt))
+            (download-instagram* download-url url))
+          (return))))))
 
 ;; 4chan
 
