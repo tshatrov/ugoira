@@ -80,21 +80,29 @@
         (webgunk:jsown-filter mm "edge_sidecar_to_children" "edges" "node" "display_url")
         (list (jsown:val mm "display_url")))))
 
-(defun download-instagram* (url ref-url)
+(defun download-instagram* (url ref-url &optional filename)
   (format t "Downloading ~a...~%" url)
-  (let ((fname (merge-pathnames *out-dir* (webgunk:get-url-file-name url))))
+  (let* ((url-file-name (webgunk:get-url-file-name url))
+         (fname (merge-pathnames *out-dir* (if filename (merge-pathnames filename url-file-name) url-file-name))))
     (download-with-ref fname url ref-url)))
+
+(defun get-instagram-id (url)
+  (elt (nth-value 1 (ppcre:scan-to-strings "/p/([^/]+)(/|$)" url)) 0))
 
 (defun download-instagram (id-or-url)
   (let* ((url (if (alexandria:starts-with-subseq "http" id-or-url) id-or-url
                   (format nil "https://www.instagram.com/p/~a/" id-or-url)))
+         (id (get-instagram-id url))
          (content (webgunk:parse-url url))
          (scripts (dom:get-elements-by-tag-name content "script")))
     (dom:do-node-list (script scripts)
       (let ((nt (webgunk:node-text script)))
         (when (search "display_url" nt)
-          (dolist (download-url (parse-instagram-script nt))
-            (download-instagram* download-url url))
+          (loop with urls = (parse-instagram-script nt)
+             with many = (> (length urls) 1)
+             for download-url in urls
+             for i from 0
+             do (download-instagram* download-url url (format nil "~a~:[~;_~d~]" id many i)))
           (return))))))
 
 ;; 4chan
